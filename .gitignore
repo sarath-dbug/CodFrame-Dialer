@@ -1,0 +1,17 @@
+# Ignore node_modules
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Ignore .env files
+.env
+*.env
+backend/.env
+frontend/.env
+
+# Ignore uploads folder in backend
+backend/uploads/
+
+# Ignore log files
+*.log
+
