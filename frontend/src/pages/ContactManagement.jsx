@@ -168,11 +168,16 @@ const CRMComponent = () => {
         const firstList = listsData[0];
         setSelectedList(firstList.name);
         setCurrentList(firstList);
-        
+        console.log("firstList:", firstList);
+
+
         // Set assigned members for the first list
         if (firstList.assignedTo) {
           setAssignMembers([firstList.assignedTo]);
           setTempAssignMembers([firstList.assignedTo]);
+        } else {
+          setAssignMembers([]);
+          setTempAssignMembers([]);
         }
       }
     } catch (err) {
@@ -312,7 +317,7 @@ const CRMComponent = () => {
       );
 
       setOpenImportContacts(false);
-      
+
       if (response.data.addedCount === 0) {
         showSnackbar(
           `No new contacts added. ${response.data.duplicatesSkipped} duplicates found.`,
@@ -324,7 +329,7 @@ const CRMComponent = () => {
           "success"
         );
       }
-      
+
       fetchContacts();
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -418,7 +423,7 @@ const CRMComponent = () => {
 
       const updatedLists = lists.filter((list) => list._id !== currentList._id);
       setLists(updatedLists);
-      
+
       if (updatedLists.length > 0) {
         setSelectedList(updatedLists[0].name);
         setCurrentList(updatedLists[0]);
@@ -426,7 +431,7 @@ const CRMComponent = () => {
         setSelectedList("");
         setCurrentList(null);
       }
-      
+
       setOpenRemoveList(false);
       showSnackbar("List removed successfully!");
     } catch (error) {
@@ -550,10 +555,10 @@ const CRMComponent = () => {
 
     try {
       const fields = [
-        'Phone', 
-        'Name', 
-        'Company Name', 
-        'Email', 
+        'Phone',
+        'Name',
+        'Company Name',
+        'Email',
         'Disposition',
         'Address',
         'Extra',
@@ -575,7 +580,7 @@ const CRMComponent = () => {
 
       let csv = fields.join(',') + '\n';
       data.forEach(row => {
-        csv += fields.map(field => 
+        csv += fields.map(field =>
           `"${row[field]?.toString().replace(/"/g, '""') || ''}"`
         ).join(',') + '\n';
       });
@@ -588,7 +593,7 @@ const CRMComponent = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       showSnackbar('Contacts exported successfully');
     } catch (error) {
       console.error('Export failed:', error);
@@ -620,8 +625,8 @@ const CRMComponent = () => {
       (contact.number && contact.number.includes(searchQuery)) ||
       (contact.name && contact.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesDisposition = 
-      selectedDisposition === "All Dispositions" || 
+    const matchesDisposition =
+      selectedDisposition === "All Dispositions" ||
       contact.disposition === selectedDisposition;
 
     return matchesSearch && matchesDisposition;
