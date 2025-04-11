@@ -693,7 +693,7 @@ export default function AuthPages() {
               />
 
               {isLogin && (
-                <Box sx={{ textAlign: 'left'}}>
+                <Box sx={{ textAlign: 'right'}}>
                   <MuiLink
                     component="button"
                     variant="body2"
