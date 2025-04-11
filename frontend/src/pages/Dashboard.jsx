@@ -122,6 +122,8 @@ const Dashboard = () => {
     successRate: 75
   });
 
+  const navigate = useNavigate();
+
   // Sample data for members
   const members = [
     {

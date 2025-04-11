@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from "react";
 import {
   Box,
   Button,
@@ -13,13 +13,19 @@ import {
   ThemeProvider,
   createTheme,
   Snackbar, 
-  Alert
-} from "@mui/material"
-import { Visibility, VisibilityOff, Email, Person, Business, Phone, Lock } from "@mui/icons-material"
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress
+} from "@mui/material";
+import { Visibility, VisibilityOff, Email, Person, Business, Phone, Lock } from "@mui/icons-material";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../features/authSlice'; 
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Custom theme based on the provided image
@@ -90,7 +96,7 @@ const theme = createTheme({
       },
     },
   },
-})
+});
 
 // Validation functions
 const validateEmail = (email) => {
@@ -105,10 +111,8 @@ const validatePassword = (password) => {
 };
 
 const validatePhone = (phone) => {
-  // Pattern that enforces exactly 10 digits with optional formatting
-  const re = /^(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})$/;
   const digitsOnly = phone.replace(/\D/g, '');
-  return digitsOnly.length === 10; // Change to 9 if needed
+  return digitsOnly.length === 10;
 };
 
 export default function AuthPages() {
@@ -134,8 +138,30 @@ export default function AuthPages() {
     password: '',
   });
 
+  // Forgot password states
+  const [forgotPassword, setForgotPassword] = useState({
+    email: '',
+    otp: '',
+    newPassword: '',
+    confirmPassword: '',
+    showNewPassword: false,
+    showConfirmPassword: false,
+  });
+  const [forgotPasswordErrors, setForgotPasswordErrors] = useState({
+    email: '',
+    otp: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [openForgotPassword, setOpenForgotPassword] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
   const dispatch = useDispatch();
-  const nav = useNavigate();
+  const navigate = useNavigate();
 
   const handleToggleView = () => {
     setIsLogin(!isLogin);
@@ -157,11 +183,11 @@ export default function AuthPages() {
       email: '',
       password: '',
     });
-  }
+  };
 
   const handleTogglePassword = () => {
-    setShowPassword(!showPassword)
-  }
+    setShowPassword(!showPassword);
+  };
 
   const validateField = (name, value) => {
     let errorMsg = '';
@@ -210,8 +236,6 @@ export default function AuthPages() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
-    // Validate the field
     const errorMsg = validateField(name, value);
     
     setErrors(prev => ({
@@ -239,7 +263,6 @@ export default function AuthPages() {
     const newErrors = {};
     let isValid = true;
     
-    // Validate all fields
     Object.keys(formData).forEach(key => {
       if (isLogin && !['email', 'password'].includes(key)) return;
       
@@ -288,7 +311,6 @@ export default function AuthPages() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     
-    // Validate the form before submission
     if (!validateForm()) {
       setError('Please fix the errors in the form');
       return;
@@ -300,14 +322,10 @@ export default function AuthPages() {
 
     try {
       if (isLogin) {
-        // Handle login
         const response = await handleLogin(formData.email, formData.password);
-        
-        console.log('Login successful:', response);
         setSuccess('Login successful!');
-        nav("/app/dashboard");
+        navigate("/app/dashboard");
       } else {
-        // Handle registration
         const response = await handleRegister({
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -316,13 +334,10 @@ export default function AuthPages() {
           email: formData.email,
           password: formData.password,
         });
-
-        console.log('Registration successful:', response);
         setSuccess('Registration successful! You can now login.');
         setIsLogin(true);
       }
     } catch (err) {
-      console.error('API error:', err);
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -332,6 +347,149 @@ export default function AuthPages() {
   const handleCloseAlert = () => {
     setError(null);
     setSuccess(null);
+  };
+
+  // Forgot password handlers
+  const handleForgotPasswordClick = () => {
+    setOpenForgotPassword(true);
+    setForgotPassword({
+      email: '',
+      otp: '',
+      newPassword: '',
+      confirmPassword: '',
+      showNewPassword: false,
+      showConfirmPassword: false,
+    });
+    setForgotPasswordErrors({
+      email: '',
+      otp: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
+    setOtpSent(false);
+    setOtpVerified(false);
+  };
+
+  const handleCloseForgotPassword = () => {
+    setOpenForgotPassword(false);
+  };
+
+  const handleForgotPasswordChange = (prop) => (event) => {
+    setForgotPassword({ ...forgotPassword, [prop]: event.target.value });
+    setForgotPasswordErrors({ ...forgotPasswordErrors, [prop]: '' });
+  };
+
+  const handleClickShowForgotPassword = (prop) => () => {
+    setForgotPassword({ ...forgotPassword, [prop]: !forgotPassword[prop] });
+  };
+
+  const handleMouseDownPassword = (event) => {
+    event.preventDefault();
+  };
+
+  const validateForgotPasswordForm = (step) => {
+    let valid = true;
+    const newErrors = {
+      email: '',
+      otp: '',
+      newPassword: '',
+      confirmPassword: '',
+    };
+
+    if (step === 1) {
+      if (!forgotPassword.email) {
+        newErrors.email = 'Email is required';
+        valid = false;
+      } else if (!validateEmail(forgotPassword.email)) {
+        newErrors.email = 'Please enter a valid email address';
+        valid = false;
+      }
+    } else if (step === 2) {
+      if (!forgotPassword.otp) {
+        newErrors.otp = 'OTP is required';
+        valid = false;
+      }
+    } else if (step === 3) {
+      if (!forgotPassword.newPassword) {
+        newErrors.newPassword = 'New password is required';
+        valid = false;
+      } else if (!validatePassword(forgotPassword.newPassword)) {
+        newErrors.newPassword = 'Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number';
+        valid = false;
+      }
+
+      if (!forgotPassword.confirmPassword) {
+        newErrors.confirmPassword = 'Please confirm your new password';
+        valid = false;
+      } else if (forgotPassword.newPassword !== forgotPassword.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+        valid = false;
+      }
+    }
+
+    setForgotPasswordErrors(newErrors);
+    return valid;
+  };
+
+  const handleSendOtp = async () => {
+    if (!validateForgotPasswordForm(1)) return;
+    
+    setIsSendingOtp(true);
+    setError(null);
+    
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/forgot-password`, {
+        email: forgotPassword.email
+      });
+      
+      setOtpSent(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!validateForgotPasswordForm(2)) return;
+    
+    setIsVerifyingOtp(true);
+    setError(null);
+    
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/verify-otp`, {
+        email: forgotPassword.email,
+        otp: forgotPassword.otp
+      });
+      
+      setOtpVerified(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid OTP');
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!validateForgotPasswordForm(3)) return;
+
+    setIsResettingPassword(true);
+    setError(null);
+
+    try {
+      await axios.post(`${API_BASE_URL}/api/auth/reset-password`, {
+        email: forgotPassword.email,
+        otp: forgotPassword.otp,
+        newPassword: forgotPassword.newPassword
+      });
+
+      setSuccess('Password reset successfully!');
+      handleCloseForgotPassword();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsResettingPassword(false);
+    }
   };
 
   return (
@@ -356,7 +514,6 @@ export default function AuthPages() {
               position: "relative",
             }}
           >
-            {/* Error/Success Alerts */}
             {error && (
               <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseAlert}>
                 <Alert onClose={handleCloseAlert} severity="error" sx={{ width: '100%' }}>
@@ -372,7 +529,6 @@ export default function AuthPages() {
               </Snackbar>
             )}
 
-            {/* Logo or Brand Section */}
             <Box
               sx={{
                 mb: 4,
@@ -536,6 +692,20 @@ export default function AuthPages() {
                 }}
               />
 
+              {isLogin && (
+                <Box sx={{ textAlign: 'left'}}>
+                  <MuiLink
+                    component="button"
+                    variant="body2"
+                    onClick={handleForgotPasswordClick}
+                    sx={{ cursor: 'pointer' }}
+                    color="primary.main"
+                  >
+                    Forgot password?
+                  </MuiLink>
+                </Box>
+              )}
+
               <Button 
                 type="submit" 
                 fullWidth 
@@ -565,6 +735,166 @@ export default function AuthPages() {
             </Box>
           </Paper>
         </Container>
+
+        {/* Forgot Password Dialog */}
+        <Dialog open={openForgotPassword} onClose={handleCloseForgotPassword} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ textAlign: 'center', py: 3 }}>
+            <Lock
+              sx={{
+                fontSize: 48,
+                padding: 1,
+                borderRadius: '50%',
+                backgroundColor: 'rgba(15, 23, 42, 0.05)',
+                color: 'primary.main',
+                mb: 2
+              }}
+            />
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+              Reset Password
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            {!otpSent ? (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                  Enter your email address and we'll send you an OTP to reset your password.
+                </Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  label="Email"
+                  value={forgotPassword.email}
+                  onChange={handleForgotPasswordChange('email')}
+                  error={Boolean(forgotPasswordErrors.email)}
+                  helperText={forgotPasswordErrors.email}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Email color="primary" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+            ) : !otpVerified ? (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                  We've sent an OTP to your email. Please enter it below.
+                </Typography>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  label="OTP"
+                  value={forgotPassword.otp}
+                  onChange={handleForgotPasswordChange('otp')}
+                  error={Boolean(forgotPasswordErrors.otp)}
+                  helperText={forgotPasswordErrors.otp}
+                />
+              </Box>
+            ) : (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body1" sx={{ mb: 3 }}>
+                  Please enter your new password.
+                </Typography>
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    label="New Password"
+                    type={forgotPassword.showNewPassword ? 'text' : 'password'}
+                    value={forgotPassword.newPassword}
+                    onChange={handleForgotPasswordChange('newPassword')}
+                    error={Boolean(forgotPasswordErrors.newPassword)}
+                    helperText={forgotPasswordErrors.newPassword}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={handleClickShowForgotPassword('showNewPassword')}
+                            onMouseDown={handleMouseDownPassword}
+                            edge="end"
+                          >
+                            {forgotPassword.showNewPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    label="Confirm New Password"
+                    type={forgotPassword.showConfirmPassword ? 'text' : 'password'}
+                    value={forgotPassword.confirmPassword}
+                    onChange={handleForgotPasswordChange('confirmPassword')}
+                    error={Boolean(forgotPasswordErrors.confirmPassword)}
+                    helperText={forgotPasswordErrors.confirmPassword}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={handleClickShowForgotPassword('showConfirmPassword')}
+                            onMouseDown={handleMouseDownPassword}
+                            edge="end"
+                          >
+                            {forgotPassword.showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            {!otpSent ? (
+              <Button
+                onClick={handleSendOtp}
+                variant="contained"
+                fullWidth
+                disabled={isSendingOtp}
+              >
+                {isSendingOtp ? (
+                  <>
+                    <CircularProgress size={24} sx={{ mr: 1 }} />
+                    Sending OTP...
+                  </>
+                ) : 'Send OTP'}
+              </Button>
+            ) : !otpVerified ? (
+              <Button
+                onClick={handleVerifyOtp}
+                variant="contained"
+                fullWidth
+                disabled={isVerifyingOtp}
+              >
+                {isVerifyingOtp ? (
+                  <>
+                    <CircularProgress size={24} sx={{ mr: 1 }} />
+                    Verifying...
+                  </>
+                ) : 'Verify OTP'}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleResetPassword}
+                variant="contained"
+                fullWidth
+                disabled={isResettingPassword}
+              >
+                {isResettingPassword ? (
+                  <>
+                    <CircularProgress size={24} sx={{ mr: 1 }} />
+                    Resetting...
+                  </>
+                ) : 'Reset Password'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );
