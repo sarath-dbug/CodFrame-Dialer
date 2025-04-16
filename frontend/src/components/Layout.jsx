@@ -29,7 +29,8 @@ const ContentArea = styled(Box)({
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 0
+  minHeight: 0,
+    marginTop: '74px'
 });
 
 function Layout() {
