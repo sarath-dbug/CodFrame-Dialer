@@ -70,7 +70,7 @@ function Navbar({ toggleSidebar }) {
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       ref={navbarRef}
       sx={{
         backgroundColor: 'background.paper',
